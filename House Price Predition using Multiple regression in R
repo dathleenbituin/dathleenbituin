@@ -1,0 +1,125 @@
+################################################################################
+#   TITLE: House Price Prediction using Multiple Regression 
+#   AUTHOR: DATHLEEN BITUIN M. SATUR
+#   DATE: JUNE 19, 2021
+#
+#   Introduction
+# Predicting the price of a house is useful for both the seller and buyer. 
+# The seller wants to ensure they are not under or overvaluing the house, 
+# as that could lead to missed profit or no interest from buyers. 
+# Conversely, buyers will be interested in predicting a house price to see 
+# if they are getting a good deal on an undervalued house or if they are 
+# getting ripped off. 
+# This dataset offers an opportunity to utilise multiple linear regression 
+# and tree-based methods to predict the prices of houses in King County, 
+# which includes Seattle, in the state of Washington. 
+# These house prices are from May 2014 to May 2015.
+#
+#
+################################################################################
+###############################################################################
+#import data
+
+library(readxl)
+hdata <- read_excel("hdata.xlsx")
+View(hdata)
+
+################################################################################
+### Packages
+
+#Import Packages
+library(Metrics)
+library(corrplot)
+library(lmtest)
+
+################################################################################
+### Data Cleaning
+# Drop all the variables that are not necessary for the model 
+# (id, waterfront, view)
+
+house_data = subset(hdata, select = -c(id, waterfront,view) )
+View(house_data)
+
+################################################################################
+### Exploratory Data Analysis
+
+#check the scatterplot
+pairs(house_data [1:7])
+
+#check the correlation
+cor(house_data)
+cr<-cor(house_data)
+corrplot(cr)
+
+################################################################################
+### Model Building
+#Split the data into training set and test set
+
+ind <- sample(2, nrow(house_data), replace = TRUE, prob = c(0.8, 0.2))
+tdata <- house_data[ind == 1,]
+vdata <- house_data [ind==2,]
+
+#Model1 training
+model1<-lm(price ~ bedrooms + bathrooms + sqft_living + floors + condition 
+           + grade,data=tdata)
+summary(model1)
+par(mfrow=c(2,2)) 
+plot(model1)
+bptest(model1) # test for heteroskesdasticity
+bgtest(model1) # test for auto-correlation
+
+#Model2 training
+model2<-lm(log(price) ~ bedrooms + bathrooms + sqft_living + floors 
+           + condition + grade, data=tdata)
+summary(model2)
+bptest(model2) # test for heteroskesdasticity
+bgtest(model2) # test for auto-correlation
+par(mfrow=c(2,2)) 
+plot(model2)
+
+#Model3 Training
+model3<-lm(log(price) ~ bedrooms + bathrooms + I(bathrooms^2) + sqft_living 
+           + condition + grade + floors, data=tdata)
+summary(model3)
+bptest(model3) # test for heteroskesdasticity
+bgtest(model3) # test for auto-correlation
+par(mfrow=c(2,2)) 
+plot(model3)
+
+################################################################################
+### Model Testing
+
+#testing model 1
+pr1 <-predict(model1,vdata)
+actual1<-vdata$price
+
+RMSE1 <- rmse(actual1, pr1)
+MAPE1 <- mape(actual1, pr1)
+
+
+# testing model 2
+pr2 <-predict(model2,vdata)
+prediction2 <- exp(pr2)
+actual2 <- vdata$price
+
+RMSE2 <- rmse(actual2, prediction2)
+MAPE2 <- mape(actual2, prediction2)
+
+
+#testing model 3
+pr3 <- predict(model3,vdata)
+prediction3 <- exp(pr3)
+actual3 <- vdata$price
+
+RMSE3 <- rmse(actual3, prediction3)
+MAPE3 <- mape(actual3, prediction3)
+
+###############################################################################
+#Model Comparison and validation
+
+MAPE <- c(MAPE1,MAPE2,MAPE3)
+RMSE <- c(RMSE1,RMSE2,RMSE3)
+AICs <- c(AIC(model1),AIC(model2),AIC(model3))
+Adj_R_squared <- c(summary(model1)$adj.r.squared, summary(model2)$adj.r.squared, 
+                   summary(model3)$adj.r.squared)
+cbind(MAPE,RMSE,AICs,Adj_R_squared)
